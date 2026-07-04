@@ -28,28 +28,35 @@ jobs:
         if [ -f gradle.properties ]; then
           sed -i 's/-XX:MaxPermSize=[0-9]*m//g' gradle.properties
           sed -i 's/org.gradle.jvmargs=-Xmx.*/org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError/' gradle.properties
-          echo "org.gradle.daemon=false" >> gradle.properties
-          echo "org.gradle.parallel=true" >> gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          echo "kotlin.code.style=official" >> gradle.properties
-          cat gradle.properties
         else
-          echo "No gradle.properties found, creating one"
           echo "org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError" > gradle.properties
-          echo "org.gradle.daemon=false" >> gradle.properties
-          echo "org.gradle.parallel=true" >> gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          echo "kotlin.code.style=official" >> gradle.properties
         fi
+        echo "org.gradle.daemon=false" >> gradle.properties
+        echo "org.gradle.parallel=true" >> gradle.properties
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+        echo "kotlin.code.style=official" >> gradle.properties
 
-    - name: Fix build.gradle for Java compatibility
+    - name: Fix app/build.gradle for Java 17
       run: |
         if [ -f app/build.gradle ]; then
-          sed -i 's/sourceCompatibility JavaVersion.VERSION_1_8/sourceCompatibility JavaVersion.VERSION_17/g' app/build.gradle || true
-          sed -i 's/targetCompatibility JavaVersion.VERSION_1_8/targetCompatibility JavaVersion.VERSION_17/g' app/build.gradle || true
-          sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' app/build.gradle || true
+          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' app/build.gradle
+          sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' app/build.gradle
+        fi
+
+    - name: Fix French strings
+      run: |
+        FRENCH_FILE="app/src/main/res/values-fr/strings.xml"
+        if [ -f "$FRENCH_FILE" ]; then
+          # Remove any problematic unicode escape sequences
+          sed -i 's/\\u[0-9a-fA-F]\{4\}/ /g' "$FRENCH_FILE"
+          # Remove invalid XML characters
+          sed -i 's/&[^a-zA-Z;]//g' "$FRENCH_FILE"
+          # Replace any invalid escapes
+          sed -i "s/'/'/g" "$FRENCH_FILE"
+          sed -i 's/"/"/g' "$FRENCH_FILE"
+          echo "Fixed French strings file"
+          cat "$FRENCH_FILE" | grep -A2 -B2 help_instructions || echo "help_instructions removed"
         fi
 
     - name: Grant execute permission for gradlew
@@ -57,7 +64,7 @@ jobs:
 
     - name: Build debug APK
       run: |
-        ./gradlew clean assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m"
+        ./gradlew clean assembleDebug --no-daemon
 
     - name: Upload debug APK
       uses: actions/upload-artifact@v4
