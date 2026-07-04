@@ -23,17 +23,37 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Fix gradle.properties
+      run: |
+        if [ -f gradle.properties ]; then
+          # Remove any MaxPermSize references
+          sed -i 's/-XX:MaxPermSize=[0-9]*m//g' gradle.properties
+          sed -i 's/org.gradle.jvmargs=-Xmx.*/org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError/' gradle.properties
+          # Ensure no duplicate entries
+          echo "org.gradle.daemon=false" >> gradle.properties
+          echo "org.gradle.parallel=true" >> gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          echo "kotlin.code.style=official" >> gradle.properties
+          cat gradle.properties
+        else
+          echo "No gradle.properties found, creating one"
+          cat > gradle.properties << EOF
+org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError
+org.gradle.daemon=false
+org.gradle.parallel=true
+android.useAndroidX=true
+android.enableJetifier=true
+kotlin.code.style=official
+EOF
+        fi
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Clean build
-      run: ./gradlew clean --no-daemon
-
     - name: Build debug APK
-      run: ./gradlew assembleDebug --no-daemon
-      env:
-        JAVA_OPTS: "-Xmx4096m"
-        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -Dorg.gradle.daemon=false"
+      run: |
+        ./gradlew clean assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m"
 
     - name: Upload debug APK
       uses: actions/upload-artifact@v4
