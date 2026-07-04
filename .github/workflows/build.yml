@@ -37,26 +37,17 @@ jobs:
         echo "android.enableJetifier=true" >> gradle.properties
         echo "kotlin.code.style=official" >> gradle.properties
 
-    - name: Fix app/build.gradle for Java 17
+    - name: Fix app/build.gradle
       run: |
         if [ -f app/build.gradle ]; then
           sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' app/build.gradle
           sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' app/build.gradle
         fi
 
-    - name: Fix French strings
+    - name: Remove broken French resources
       run: |
-        FRENCH_FILE="app/src/main/res/values-fr/strings.xml"
-        if [ -f "$FRENCH_FILE" ]; then
-          # Remove any problematic unicode escape sequences
-          sed -i 's/\\u[0-9a-fA-F]\{4\}/ /g' "$FRENCH_FILE"
-          # Remove invalid XML characters
-          sed -i 's/&[^a-zA-Z;]//g' "$FRENCH_FILE"
-          # Replace any invalid escapes
-          sed -i "s/'/'/g" "$FRENCH_FILE"
-          sed -i 's/"/"/g' "$FRENCH_FILE"
-          echo "Fixed French strings file"
-          cat "$FRENCH_FILE" | grep -A2 -B2 help_instructions || echo "help_instructions removed"
+        if [ -d app/src/main/res/values-fr ]; then
+          rm -rf app/src/main/res/values-fr
         fi
 
     - name: Grant execute permission for gradlew
