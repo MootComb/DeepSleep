@@ -16,44 +16,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
+    - name: Set up JDK 8
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '8'
         distribution: 'temurin'
         cache: gradle
-
-    - name: Fix gradle.properties
-      run: |
-        if [ -f gradle.properties ]; then
-          # Remove any MaxPermSize references
-          sed -i 's/-XX:MaxPermSize=[0-9]*m//g' gradle.properties
-          sed -i 's/org.gradle.jvmargs=-Xmx.*/org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError/' gradle.properties
-          # Ensure no duplicate entries
-          echo "org.gradle.daemon=false" >> gradle.properties
-          echo "org.gradle.parallel=true" >> gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          echo "kotlin.code.style=official" >> gradle.properties
-          cat gradle.properties
-        else
-          echo "No gradle.properties found, creating one"
-          cat > gradle.properties << EOF
-org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError
-org.gradle.daemon=false
-org.gradle.parallel=true
-android.useAndroidX=true
-android.enableJetifier=true
-kotlin.code.style=official
-EOF
-        fi
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
     - name: Build debug APK
-      run: |
-        ./gradlew clean assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m"
+      run: ./gradlew clean assembleDebug --no-daemon
 
     - name: Upload debug APK
       uses: actions/upload-artifact@v4
@@ -61,27 +35,3 @@ EOF
         name: DeepSleep-debug
         path: app/build/outputs/apk/debug/*.apk
         retention-days: 30
-
-    - name: Get APK info
-      id: apk_info
-      run: |
-        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
-        if [ -n "$APK_PATH" ]; then
-          APK_NAME=$(basename "$APK_PATH")
-          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "APK found: $APK_NAME"
-        else
-          echo "No APK found"
-          exit 1
-        fi
-
-    - name: Upload to Release (if tag)
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: ${{ steps.apk_info.outputs.apk_path }}
-        draft: false
-        prerelease: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
